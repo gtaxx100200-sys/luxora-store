@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LUXORA — إدارة المنتجات</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#070707;color:#eee;font-family:Arial,sans-serif}
+.wrap{max-width:950px;margin:auto;padding:20px}.logo{color:#d4af37;font-size:26px;font-weight:900;letter-spacing:5px}
+.box{background:#111;border:1px solid #292929;border-radius:18px;padding:18px;margin:15px 0}
+input,textarea{width:100%;padding:12px;margin:7px 0 12px;border-radius:10px;border:1px solid #444;background:#080808;color:#fff}
+button,a{display:inline-block;padding:11px 15px;border-radius:10px;border:1px solid #6a5520;background:#111;color:#d4af37;cursor:pointer;text-decoration:none;margin:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.item{background:#0b0b0b;border:1px solid #292929;border-radius:14px;padding:12px}.thumb{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#181818}.danger{color:#ff7777;border-color:#633}.ok{color:#78d798}.muted{color:#999;line-height:1.6}.hidden{display:none}.status{white-space:pre-wrap;color:#d4af37;margin-top:10px}
+</style>
+</head>
+<body><div class="wrap">
+<div class="logo">LUXORA</div>
+
+<section id="login" class="box">
+<h1>🔐 دخول الإدارة</h1>
+<p class="muted">كلمة المرور الافتراضية: <b>LUXORA2026!</b></p>
+<input id="password" type="password" placeholder="كلمة المرور">
+<button onclick="unlock()">دخول</button><div id="loginStatus" class="status"></div>
+</section>
+
+<div id="app" class="hidden">
+<section class="box">
+<h1>➕ إضافة / تعديل منتج</h1>
+<p class="muted">ارفع الصورة من جهازك، اكتب البيانات، ثم اضغط حفظ ونشر. سيُحدّث GitHub ملفات المتجر تلقائيًا، وبعد Deployment من Cloudflare يظهر المنتج للجميع.</p>
+<label>GitHub Personal Access Token</label>
+<input id="token" type="password" placeholder="الصقه هنا فقط، لا تحفظه">
+<label>اسم المنتج</label><input id="name">
+<label>السعر</label><input id="price">
+<label>الوصف</label><textarea id="desc" rows="4"></textarea>
+<label>رابط الشراء</label><input id="link" placeholder="https://...">
+<label>صورة المنتج</label><input id="image" type="file" accept="image/*">
+<input id="editId" type="hidden">
+<img id="preview" class="thumb hidden" style="max-width:280px">
+<br>
+<button onclick="saveProduct()">💾 حفظ ونشر المنتج</button>
+<button onclick="clearForm()">إلغاء</button>
+<div id="status" class="status"></div>
+</section>
+
+<section class="box">
+<h2>📦 المنتجات</h2><div id="list" class="grid"></div>
+</section>
+</div>
+</div>
+
+<script>
+const PASS="LUXORA2026!";
+const OWNER="gtaxx100200-sys", REPO="luxora-store", BRANCH="main";
+let products=[], editingId=null;
+
+function unlock(){
+ if(password.value===PASS){sessionStorage.lxAdmin='1';login.classList.add('hidden');app.classList.remove('hidden');loadProducts();}
+ else loginStatus.textContent='كلمة المرور غير صحيحة.';
+}
+if(sessionStorage.lxAdmin==='1'){login.classList.add('hidden');app.classList.remove('hidden');loadProducts();}
+
+async function gh(path, opts={}){
+ const t=token.value.trim(); if(!t) throw Error('أدخل GitHub Token أولاً.');
+ const r=await fetch('https://api.github.com'+path,{...opts,headers:{
+  Accept:'application/vnd.github+json',Authorization:'Bearer '+t,'X-GitHub-Api-Version':'2022-11-28',...(opts.headers||{})}});
+ const d=await r.json().catch(()=>({})); if(!r.ok) throw Error(d.message||('GitHub '+r.status)); return d;
+}
+function decode(content){const bin=atob(content.replace(/\n/g,''));const bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));return new TextDecoder().decode(bytes);}
+function encode(text){const bytes=new TextEncoder().encode(text);let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(bin);}
+async function get(path){try{return await gh('/repos/'+OWNER+'/'+REPO+'/contents/'+path+'?ref='+BRANCH)}catch(e){return null}}
+async function put(path,text,message,sha){const b={message,content:encode(text),branch:BRANCH};if(sha)b.sha=sha;return gh('/repos/'+OWNER+'/'+REPO+'/contents/'+path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})}
+
+async function loadProducts(){
+ status.textContent='جاري تحميل المنتجات...';
+ try{const f=await get('products.json');products=f?JSON.parse(decode(f.content)):[];render();}
+ catch(e){status.textContent='خطأ: '+e.message}
+}
+function render(){
+ list.innerHTML=products.length?products.map(p=>`<div class="item"><img class="thumb" src="${p.image}" onerror="this.style.visibility='hidden'"><h3>${esc(p.name)}</h3><div>${esc(p.price)}</div><button onclick="editProduct('${p.id}')">تعديل</button><button class="danger" onclick="deleteProduct('${p.id}')">حذف</button></div>`).join(''):'<p class="muted">لا توجد منتجات.</p>';
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+function clearForm(){editingId=null;editId.value='';name.value='';price.value='';desc.value='';link.value='';image.value='';preview.classList.add('hidden');status.textContent='';}
+function editProduct(id){const p=products.find(x=>x.id===id);if(!p)return;editingId=id;name.value=p.name;price.value=p.price;desc.value=p.desc;link.value=p.link;preview.src=p.image;preview.classList.remove('hidden');scrollTo(0,0);}
+image.onchange=()=>{const f=image.files[0];if(f){preview.src=URL.createObjectURL(f);preview.classList.remove('hidden')}};
+
+async function uploadImage(file,name){
+ if(!file)return null;
+ if(file.size>8*1024*1024)throw Error('الصورة أكبر من 8MB.');
+ const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+ const safe=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,45)||'product';
+ const path='product-images/'+Date.now()+'-'+safe+'.'+ext;
+ const buf=await file.arrayBuffer();let bin='';const a=new Uint8Array(buf);for(let i=0;i<a.length;i+=0x8000)bin+=String.fromCharCode(...a.subarray(i,i+0x8000));
+ await gh('/repos/'+OWNER+'/'+REPO+'/contents/'+path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Add product image',content:btoa(bin),branch:BRANCH})});
+ return path;
+}
+async function saveProduct(){
+ try{
+  status.textContent='جاري الحفظ والنشر...';
+  const f=await get('products.json');
+  let current=f?JSON.parse(decode(f.content)):products;
+  const id=editingId||crypto.randomUUID();
+  let old=current.find(x=>x.id===id);
+  let imagePath=old?.image||'';
+  if(image.files[0]) imagePath=await uploadImage(image.files[0],name.value.trim());
+  if(!imagePath)throw Error('اختر صورة المنتج.');
+  const p={id,name:name.value.trim(),price:price.value.trim(),desc:desc.value.trim(),link:link.value.trim(),image:imagePath};
+  current=old?current.map(x=>x.id===id?p:x):[p,...current];
+  await put('products.json',JSON.stringify(current,null,2),'Update products',f&&f.sha);
+  products=current;render();clearForm();status.textContent='تم نشر المنتج بنجاح. Cloudflare سيقوم بالنشر تلقائيًا.';
+ }catch(e){status.textContent='فشل: '+e.message}
+}
+async function deleteProduct(id){
+ if(!confirm('حذف المنتج؟'))return;
+ try{
+  const f=await get('products.json');const current=JSON.parse(decode(f.content)).filter(x=>x.id!==id);
+  await put('products.json',JSON.stringify(current,null,2),'Delete product',f.sha);
+  products=current;render();status.textContent='تم حذف المنتج. سيُحدّث المتجر تلقائيًا.';
+ }catch(e){status.textContent='فشل: '+e.message}
+}
+</script>
+</body></html>
