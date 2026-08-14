@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LUXORA Admin</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#070707;color:#eee;font-family:Arial,sans-serif}.box{max-width:700px;margin:35px auto;padding:20px}
+h1{color:#d4af37;letter-spacing:4px}label{display:block;margin:15px 0 7px;color:#bbb}input,textarea{width:100%;padding:13px;background:#111;color:#fff;border:1px solid #393020;border-radius:8px}textarea{min-height:90px}button,a{display:inline-block;margin-top:16px;padding:12px 18px;border-radius:8px;border:0;cursor:pointer;text-decoration:none}.save{background:#d4af37;color:#080808;font-weight:800}.clear{background:#222;color:#fff}.back{color:#d4af37;border:1px solid #5b4a1d}.item{border:1px solid #292318;background:#111;padding:15px;border-radius:10px;margin-top:12px}.item button{background:#5a1717;color:white;margin-right:7px}.note{color:#999;line-height:1.6}
+</style></head><body><div class="box">
+<h1>LUXORA ADMIN</h1><p class="note">Add, edit or delete products. Changes are saved in this browser. For a real multi-device admin panel, the site must later be connected to a database/login service.</p>
+<label>Product name</label><input id="name">
+<label>Price</label><input id="price" placeholder="Example: $19.99"><label>Description</label><textarea id="desc"></textarea>
+<label>Image URL</label><input id="image">
+<label>Affiliate URL</label><input id="link">
+<button class="save" onclick="save()">SAVE PRODUCT</button>
+<button class="clear" onclick="resetForm()">CLEAR</button>
+<a class="back" href="index.html">VIEW STORE</a>
+<h2>My Stats</h2><div class="item"><b>Total product clicks recorded on this device:</b> <span id="clickTotal" style="color:#d4af37">0</span><br><button onclick="showClicks()">REFRESH</button> <button onclick="clearClicks()">CLEAR</button><pre id="clickReport" style="white-space:pre-wrap;color:#aaa"></pre></div><h2>Products</h2><div id="list"></div></div>
+<script>
+let products=JSON.parse(localStorage.getItem("luxora_products")||"null")||[{name:"BSEED Zigbee Smart Touch Switch",price:"Add price",desc:"1/2/3 Gang 1 Way smart wall switch with Tuya, Smart Life, Google and Alexa support.",image:"https://ae01.alicdn.com/kf/Sf401287a71204383bfb5b004a9230501T.jpg",link:"https://s.click.aliexpress.com/e/_c2QfqVOL"}];
+let edit=-1;
+function persist(){localStorage.setItem("luxora_products",JSON.stringify(products));render()}
+function resetForm(){edit=-1;name.value=price.value=desc.value=image.value=link.value=""}
+function save(){let p={name:name.value.trim(),price:price.value.trim(),desc:desc.value.trim(),image:image.value.trim(),link:link.value.trim()};if(!p.name||!p.image||!p.link)return alert("Please fill product name, image URL and affiliate URL.");if(edit<0)products.push(p);else products[edit]=p;persist();resetForm()}
+function editP(i){edit=i;let p=products[i];name.value=p.name;price.value=p.price||"";desc.value=p.desc||"";image.value=p.image;link.value=p.link;scrollTo(0,0)}
+function del(i){if(confirm("Delete this product?")){products.splice(i,1);persist()}}
+function render(){list.innerHTML=products.map((p,i)=>`<div class="item"><b>${p.name}</b><br><span style="color:#d4af37">${p.price||"No price"}</span><br><small>${p.link}</small><br><button onclick="editP(${i})">EDIT</button><button onclick="del(${i})">DELETE</button></div>`).join("")}
+function showClicks(){const c=JSON.parse(localStorage.getItem("luxora_clicks")||"[]");clickTotal.textContent=c.length;clickReport.textContent=c.map((x,i)=>`${i+1}. ${x.product} — ${new Date(x.time).toLocaleString()}`).join("\n")||"No clicks yet."} function clearClicks(){if(confirm("Clear click statistics?")){localStorage.removeItem("luxora_clicks");showClicks()}} showClicks();render()
+</script>
+<!-- LUXORA PRO ANALYTICS -->
+<section id="luxora-analytics" style="margin:24px 0;padding:20px;border:1px solid #d8b75a;border-radius:18px;background:#0d0d0d;color:#fff;font-family:Arial,sans-serif">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:12px;color:#d8b75a;letter-spacing:1px">LUXORA PRO</div>
+      <h2 style="margin:5px 0 0;font-size:22px">إحصائيات المتجر</h2>
+    </div>
+    <div style="font-size:12px;color:#aaa">تتبع التفاعل مع المتجر والمنتجات</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:18px">
+    <div class="lx-card"><div>👥</div><b id="lx-visitors">—</b><span>زوار المتجر</span></div>
+    <div class="lx-card"><div>👀</div><b id="lx-product-views">—</b><span>مشاهدات المنتجات</span></div>
+    <div class="lx-card"><div>🖱️</div><b id="lx-product-clicks">—</b><span>نقرات المنتجات</span></div>
+    <div class="lx-card"><div>🔗</div><b id="lx-buy-clicks">—</b><span>نقرات الشراء</span></div>
+  </div>
+  <p style="margin:15px 0 0;color:#aaa;font-size:12px">
+    ملاحظة: الأرقام العامة للزوار تحتاج ربط Cloudflare Web Analytics. هذه اللوحة تعرض أحداث المتجر التي يرسلها نظام الإحصائيات عند تفعيله.
+  </p>
+</section>
+<style>
+#luxora-analytics .lx-card{padding:16px;border:1px solid #292929;border-radius:14px;background:#151515}
+#luxora-analytics .lx-card div{font-size:20px}
+#luxora-analytics .lx-card b{display:block;font-size:26px;margin:6px 0;color:#d8b75a}
+#luxora-analytics .lx-card span{font-size:12px;color:#aaa}
+</style>
+<script>
+(function(){
+  const stats = JSON.parse(localStorage.getItem('luxora_stats') || '{}');
+  document.getElementById('lx-visitors').textContent = stats.visitors ?? '—';
+  document.getElementById('lx-product-views').textContent = stats.productViews ?? '—';
+  document.getElementById('lx-product-clicks').textContent = stats.productClicks ?? '—';
+  document.getElementById('lx-buy-clicks').textContent = stats.buyClicks ?? '—';
+})();
+</script>
+<!-- /LUXORA PRO ANALYTICS -->
+
+</body></html>
